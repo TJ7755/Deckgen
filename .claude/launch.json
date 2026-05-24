@@ -1,0 +1,19 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "test-deck",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8765"],
+      "port": 8765,
+      "cwd": "/Users/TJ7755/Documents/Coding/Deckgen/output/path_fix_verification_20260523/reveal.js"
+    },
+    {
+      "name": "landing",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8766"],
+      "port": 8766,
+      "cwd": "/Users/TJ7755/Documents/Coding/Deckgen"
+    }
+  ]
+}

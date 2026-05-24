@@ -1,0 +1,1258 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Deckgen — presentation decks from a single brief</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Deckgen is a Node.js CLI that generates visual journalism presentations via LLM. One brief, five phases, a reveal.js deck worth showing.">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+
+  <style>
+    /* ── Design tokens ──────────────────────────────────────────────── */
+    :root {
+      --bg:        #0a0a08;
+      --surface:   #111110;
+      --ink:       #f0ece0;
+      --ink-muted: #7a7670;
+      --accent:    #d4a843;
+      --rule:      #252420;
+      --code-bg:   #050503;
+      --success:   #5a9e6f;
+      --error:     #c0504a;
+
+      --s1:  0.25rem;
+      --s2:  0.5rem;
+      --s3:  0.75rem;
+      --s4:  1rem;
+      --s6:  1.5rem;
+      --s8:  2rem;
+      --s12: 3rem;
+      --s16: 4rem;
+      --s24: 6rem;
+      --s32: 8rem;
+
+      --r-sm: 2px;
+      --r-md: 4px;
+
+      --font-display: 'Playfair Display', Georgia, serif;
+      --font-mono:    'DM Mono', 'SF Mono', Menlo, monospace;
+      --font-body:    'DM Sans', system-ui, sans-serif;
+    }
+
+    /* ── Reset ──────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg);
+      color: var(--ink);
+      font-family: var(--font-body);
+      font-size: 1.0625rem;
+      line-height: 1.65;
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: inherit; }
+
+    /* ── Layout ─────────────────────────────────────────────────────── */
+    .container {
+      width: 100%;
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 0 var(--s8);
+    }
+    @media (max-width: 768px) {
+      .container { padding: 0 var(--s6); }
+    }
+    @media (max-width: 480px) {
+      .container { padding: 0 var(--s4); }
+    }
+
+    /* ── Focus ──────────────────────────────────────────────────────── */
+    :focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 3px;
+      border-radius: var(--r-sm);
+    }
+
+    /* ── Nav ────────────────────────────────────────────────────────── */
+    .nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: var(--bg);
+      border-bottom: 1px solid var(--rule);
+    }
+    .nav__inner {
+      display: flex;
+      align-items: center;
+      height: 56px;
+    }
+    .nav__actions {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: var(--s8);
+    }
+    .nav__wordmark {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--s3);
+      font-family: var(--font-mono);
+      font-size: 0.8125rem;
+      font-weight: 500;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--ink);
+      text-decoration: none;
+    }
+    .nav__wordmark svg { color: var(--accent); flex-shrink: 0; }
+    .nav__link {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      letter-spacing: 0.06em;
+      color: var(--ink-muted);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    .nav__link:hover { color: var(--ink); }
+
+    /* ── Hero ───────────────────────────────────────────────────────── */
+    .hero {
+      min-height: calc(88svh - 56px);
+      position: relative;
+      display: flex;
+      align-items: flex-start;
+      padding: var(--s12) 0 var(--s8);
+      border-bottom: 1px solid var(--rule);
+    }
+    .hero::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      bottom: 1.25rem;
+      width: 72px;
+      height: 1px;
+      background: var(--rule);
+      transform: translateX(-50%);
+      pointer-events: none;
+    }
+    .hero__inner {
+      width: 100%;
+    }
+    .hero__split {
+      display: grid;
+      grid-template-columns: minmax(0, 1.12fr) minmax(0, 0.88fr);
+      gap: var(--s12);
+      align-items: start;
+    }
+    @media (max-width: 860px) {
+      .hero__split { grid-template-columns: 1fr; }
+    }
+    .hero__text {
+      padding-top: var(--s6);
+      padding-bottom: var(--s8);
+    }
+    .hero__kicker {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: var(--s8);
+    }
+    .hero__headline {
+      font-family: var(--font-display);
+      font-size: clamp(3rem, 7.2vw, 7rem);
+      font-weight: 900;
+      line-height: 0.93;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+      margin-bottom: var(--s8);
+      max-width: 13ch;
+    }
+    .hero__headline em {
+      font-style: italic;
+      color: var(--accent);
+    }
+    .hero__sub {
+      font-size: clamp(1rem, 1.8vw, 1.1875rem);
+      font-weight: 300;
+      line-height: 1.6;
+      color: var(--ink-muted);
+      max-width: 52ch;
+      margin-bottom: var(--s8);
+    }
+    .hero__actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--s6);
+      align-items: center;
+    }
+    .btn-primary {
+      font-family: var(--font-mono);
+      font-size: 0.8125rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--bg);
+      background: var(--ink);
+      text-decoration: none;
+      padding: var(--s3) var(--s6);
+      border-radius: var(--r-sm);
+      transition: background 0.15s, color 0.15s;
+    }
+    .btn-primary:hover { background: var(--accent); }
+    .btn-secondary {
+      font-family: var(--font-mono);
+      font-size: 0.8125rem;
+      letter-spacing: 0.06em;
+      color: var(--ink-muted);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    .btn-secondary:hover { color: var(--ink); }
+
+    /* ── Terminal slab ──────────────────────────────────────────────── */
+    .terminal {
+      background: var(--code-bg);
+      border-top: 1px solid var(--rule);
+      border-bottom: 1px solid var(--rule);
+      margin-top: -3rem;
+      position: relative;
+      z-index: 1;
+    }
+    .terminal__inner {
+      padding: var(--s16) 0;
+    }
+    .terminal__output {
+      font-family: var(--font-mono);
+      font-size: 0.8125rem;
+      line-height: 1.85;
+      overflow-x: auto;
+    }
+    .t-blank   { display: block; height: 1.1em; }
+    .t-prompt  { color: var(--ink-muted); display: block; }
+    .t-phase   { color: var(--accent); display: block; font-weight: 500; }
+    .t-plain   { color: var(--ink-muted); display: block; }
+    .t-rich    { display: block; }
+    .t-done    { color: var(--success); }
+    .t-value   { color: var(--ink); }
+    .t-label   { color: var(--ink-muted); }
+    .t-type    { color: var(--accent); }
+    .t-title   { color: var(--ink); }
+    .t-number  { color: var(--ink-muted); }
+    .t-path    { color: var(--accent); }
+    .t-url     { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+
+    /* ── Sections ───────────────────────────────────────────────────── */
+    .section {
+      padding: var(--s24) 0;
+      border-bottom: 1px solid var(--rule);
+    }
+    .section--alt { background: var(--surface); }
+    .section__kicker {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--ink-muted);
+      margin-bottom: var(--s6);
+    }
+    .section__heading {
+      font-family: var(--font-display);
+      font-size: clamp(1.75rem, 3.5vw, 3rem);
+      font-weight: 700;
+      line-height: 1.1;
+      letter-spacing: -0.015em;
+      color: var(--ink);
+      margin-bottom: var(--s12);
+    }
+
+    /* ── Phases ─────────────────────────────────────────────────────── */
+    .phases {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      border-top: 1px solid var(--rule);
+    }
+    @media (max-width: 860px) {
+      .phases { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 520px) {
+      .phases { grid-template-columns: 1fr; }
+    }
+    .phase {
+      padding: var(--s8) var(--s6) var(--s8) 0;
+      border-right: 1px solid var(--rule);
+    }
+    .phase:last-child { border-right: none; }
+    @media (max-width: 860px) {
+      .phase { border-right: none; border-bottom: 1px solid var(--rule); padding-right: 0; }
+      .phase:nth-child(odd) { border-right: 1px solid var(--rule); padding-right: var(--s6); }
+      .phase:nth-last-child(-n+2) { border-bottom: none; }
+    }
+    @media (max-width: 520px) {
+      .phase { border-right: none !important; border-bottom: 1px solid var(--rule); padding-right: 0; }
+      .phase:last-child { border-bottom: none; }
+      .phase:nth-last-child(2) { border-bottom: 1px solid var(--rule); }
+    }
+    .phase__num {
+      display: block;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--accent);
+      letter-spacing: 0.06em;
+      margin-bottom: var(--s3);
+    }
+    .phase__name {
+      font-family: var(--font-display);
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--ink);
+      margin-bottom: var(--s3);
+      line-height: 1.2;
+    }
+    .phase__desc {
+      font-size: 0.875rem;
+      color: var(--ink-muted);
+      line-height: 1.55;
+    }
+
+    /* ── Slide types ────────────────────────────────────────────────── */
+    .slide-types {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      border-top: 1px solid var(--rule);
+    }
+    @media (max-width: 600px) {
+      .slide-types { grid-template-columns: 1fr; }
+    }
+    .slide-type {
+      display: flex;
+      gap: var(--s6);
+      align-items: baseline;
+      padding: var(--s4) var(--s4) var(--s4) 0;
+      border-bottom: 1px solid var(--rule);
+    }
+    .slide-type:nth-last-child(-n+2) { border-bottom: none; }
+    @media (max-width: 600px) {
+      .slide-type:last-child { border-bottom: none; }
+      .slide-type:nth-last-child(2) { border-bottom: 1px solid var(--rule); }
+    }
+    .slide-type__name {
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: var(--accent);
+      flex-shrink: 0;
+      width: 10.5em;
+    }
+    .slide-type__desc {
+      font-size: 0.875rem;
+      color: var(--ink-muted);
+      line-height: 1.5;
+    }
+
+    /* ── Modes ─────────────────────────────────────────────────────── */
+    .modes {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: var(--rule);
+      border: 1px solid var(--rule);
+    }
+    @media (max-width: 920px) {
+      .modes { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 560px) {
+      .modes { grid-template-columns: 1fr; }
+    }
+    .mode {
+      min-height: 11rem;
+      padding: var(--s8);
+      background: linear-gradient(180deg, rgba(17, 17, 16, 0.96), rgba(11, 11, 9, 0.98));
+    }
+    .mode__eyebrow {
+      display: inline-block;
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: var(--s4);
+    }
+    .mode__name {
+      font-family: var(--font-display);
+      font-size: 1.35rem;
+      line-height: 1.15;
+      letter-spacing: -0.015em;
+      color: var(--ink);
+      margin-bottom: var(--s4);
+      max-width: 10ch;
+    }
+    .mode__desc {
+      font-size: 0.875rem;
+      color: var(--ink-muted);
+      line-height: 1.55;
+      max-width: 30ch;
+    }
+
+    .mode__meta {
+      margin-top: var(--s6);
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.05em;
+      color: var(--ink-muted);
+    }
+
+    /* ── Depth table ────────────────────────────────────────────────── */
+    .depth-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .depth-table th {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--ink-muted);
+      text-align: left;
+      font-weight: 400;
+      padding: var(--s3) var(--s6) var(--s3) 0;
+      border-bottom: 1px solid var(--rule);
+      white-space: nowrap;
+    }
+    .depth-table th:last-child { padding-right: 0; }
+    .depth-table td {
+      font-size: 0.875rem;
+      padding: var(--s4) var(--s6) var(--s4) 0;
+      border-bottom: 1px solid var(--rule);
+      vertical-align: top;
+    }
+    .depth-table td:last-child { padding-right: 0; }
+    .depth-table tr:last-child td { border-bottom: none; }
+    .td-name  { font-family: var(--font-mono); font-size: 0.8125rem !important; color: var(--accent); white-space: nowrap; }
+    .td-label { color: var(--ink); }
+    .td-muted { color: var(--ink-muted); }
+    @media (max-width: 600px) {
+      .depth-table th:nth-child(3),
+      .depth-table th:nth-child(4),
+      .depth-table td:nth-child(3),
+      .depth-table td:nth-child(4) { display: none; }
+    }
+
+    /* ── Quick start ────────────────────────────────────────────────── */
+    .qs-block { margin-bottom: var(--s8); }
+    .qs-block:last-child { margin-bottom: 0; }
+    .qs-label {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: var(--ink-muted);
+      margin-bottom: var(--s3);
+    }
+    .qs-code { position: relative; }
+    .qs-code pre {
+      font-family: var(--font-mono);
+      font-size: 0.8125rem;
+      line-height: 1.75;
+      color: var(--ink);
+      background: var(--code-bg);
+      border: 1px solid var(--rule);
+      border-radius: var(--r-md);
+      padding: var(--s4) var(--s6);
+      padding-right: var(--s16);
+      overflow-x: auto;
+      white-space: pre;
+    }
+    .copy-btn {
+      position: absolute;
+      top: var(--s3);
+      right: var(--s3);
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--ink-muted);
+      background: var(--rule);
+      border: none;
+      border-radius: var(--r-sm);
+      padding: 2px var(--s3);
+      cursor: pointer;
+      transition: color 0.12s, background 0.12s;
+    }
+    .copy-btn:hover { color: var(--ink); background: #38342e; }
+    .copy-btn.copied { color: var(--success); }
+
+    /* ── Footer ─────────────────────────────────────────────────────── */
+    .footer { padding: var(--s12) 0; }
+    .footer__inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: var(--s4);
+    }
+    .footer__left {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--ink-muted);
+      letter-spacing: 0.04em;
+    }
+    .footer__right {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--ink-muted);
+    }
+    .footer__right a {
+      color: var(--ink-muted);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    .footer__right a:hover { color: var(--ink); }
+
+    /* ── Slide gallery ──────────────────────────────────────────────── */
+    .hero__gallery {
+      position: relative;
+      height: 560px;
+      overflow: hidden;
+      -webkit-mask-image: linear-gradient(to bottom, #000 68%, transparent 100%);
+      mask-image: linear-gradient(to bottom, #000 68%, transparent 100%);
+    }
+    @media (max-width: 860px) {
+      .hero__gallery { display: none; }
+    }
+
+    /* ── Slide mockup base ──────────────────────────────────────────── */
+    .slide-mock {
+      position: absolute;
+      aspect-ratio: 16 / 9;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .sm-photo {
+      flex: 0 0 45%;
+      position: relative;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+    }
+    .sm-photo::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(6, 8, 12, 0.18);
+    }
+    .sm-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 0.875rem 1rem 1rem;
+    }
+    .sm-eyebrow {
+      display: block;
+      font-family: var(--font-mono);
+      font-size: 0.5rem;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      margin-bottom: 0.375rem;
+    }
+    .sm-title {
+      font-family: var(--font-display);
+      font-weight: 700;
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.375rem;
+    }
+    .sm-rule {
+      display: block;
+      width: 2rem;
+      height: 2px;
+      margin-bottom: 0.375rem;
+      flex-shrink: 0;
+    }
+    .sm-sub {
+      font-family: var(--font-mono);
+      font-size: 0.475rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      line-height: 1.5;
+    }
+
+    /* ── Slide 1: Urban Cycling ─── deep navy, teal accent ─────────── */
+    .slide-mock--1 {
+      width: 360px;
+      top: 0;
+      left: 0;
+      --sm-r: -1.5deg;
+      transform: rotate(-1.5deg);
+      background: #0c1a32;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.6), 0 2px 8px rgba(0,0,0,0.4);
+      z-index: 5;
+    }
+    .slide-mock--1 .sm-photo {
+      background-image: url('https://images.unsplash.com/photo-1485965120184-e220f721d03e?auto=format&fit=crop&w=1200&q=80');
+      background-position: center center;
+    }
+    .slide-mock--1 .sm-content { background: #0c1a32; }
+    .slide-mock--1 .sm-eyebrow { color: #5fb0cc; }
+    .slide-mock--1 .sm-title { color: #d8e6f0; font-size: 1.25rem; }
+    .slide-mock--1 .sm-rule { background: #5fb0cc; }
+    .slide-mock--1 .sm-sub { color: #3e627c; }
+
+    /* ── Slide 2: Investor Briefing ─── warm black, amber ───────────── */
+    .slide-mock--2 {
+      width: 330px;
+      top: 158px;
+      left: 140px;
+      --sm-r: 1.2deg;
+      transform: rotate(1.2deg);
+      background: #0e0c09;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.7), 0 2px 8px rgba(0,0,0,0.4);
+      z-index: 4;
+    }
+    .slide-mock--2 .sm-photo {
+      background-image: url('https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80');
+      background-position: center center;
+    }
+    .slide-mock--2 .sm-content { padding: 1rem 1rem 1rem; justify-content: flex-start; }
+    .slide-mock--2 .sm-eyebrow { color: var(--accent); margin-bottom: 0.5rem; }
+    .slide-mock--2 .sm-title { color: #ede4cc; font-size: 1.2rem; font-family: var(--font-body); font-weight: 500; letter-spacing: -0.01em; margin-bottom: 0.5rem; }
+    .slide-mock--2 .sm-rule { background: var(--accent); }
+    .slide-mock--2 .sm-sub { color: #4a4030; }
+
+    /* ── Slide 3: Climate Science ─── steel blue, crisis orange ─────── */
+    .slide-mock--3 {
+      width: 350px;
+      top: 278px;
+      left: 10px;
+      --sm-r: -0.8deg;
+      transform: rotate(-0.8deg);
+      background: #0e1820;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.65), 0 2px 8px rgba(0,0,0,0.4);
+      z-index: 3;
+    }
+    .slide-mock--3 .sm-photo {
+      background-image: url('https://images.unsplash.com/photo-1500375592092-40eb2168fd21?auto=format&fit=crop&w=1200&q=80');
+      background-position: center center;
+    }
+    .slide-mock--3 .sm-content { background: #0e1820; }
+    .slide-mock--3 .sm-eyebrow { color: #d4742a; }
+    .slide-mock--3 .sm-title { color: #c8d8e6; font-size: 1.2rem; font-style: italic; }
+    .slide-mock--3 .sm-rule { background: #d4742a; }
+    .slide-mock--3 .sm-sub { color: #3a5468; }
+
+    /* ── Slide 4: Quantum Computing ─── near-black, electric cyan ───── */
+    .slide-mock--4 {
+      width: 320px;
+      top: 448px;
+      left: 130px;
+      --sm-r: 1.8deg;
+      transform: rotate(1.8deg);
+      background: #080a0f;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.7), 0 2px 8px rgba(0,0,0,0.4);
+      z-index: 2;
+    }
+    .slide-mock--4 .sm-photo {
+      background-image: url('https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80');
+      background-position: center center;
+    }
+    .slide-mock--4 .sm-content { justify-content: center; }
+    .slide-mock--4 .sm-eyebrow { color: #48b8d8; }
+    .slide-mock--4 .sm-title { color: #aec4d4; font-size: 1.1rem; font-family: var(--font-body); font-weight: 600; letter-spacing: -0.01em; }
+    .slide-mock--4 .sm-rule { background: #48b8d8; }
+    .slide-mock--4 .sm-sub { color: #2e4858; }
+
+    /* ── Slide 5: Design Workshop ─── warm paper, dark ink ──────────── */
+    .slide-mock--5 {
+      width: 340px;
+      top: 590px;
+      left: 0;
+      --sm-r: -1.2deg;
+      transform: rotate(-1.2deg);
+      background: #f0ece3;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.55), 0 2px 8px rgba(0,0,0,0.3);
+      z-index: 1;
+    }
+    .slide-mock--5 .sm-photo {
+      background-image: url('https://images.unsplash.com/photo-1497366754035-f200968a6e72?auto=format&fit=crop&w=1200&q=80');
+      background-position: center center;
+    }
+    .slide-mock--5 .sm-content { justify-content: flex-end; padding: 1rem 1.125rem; }
+    .slide-mock--5 .sm-eyebrow { color: #7a5e10; }
+    .slide-mock--5 .sm-title { color: #1a1410; font-size: 1.2rem; }
+    .slide-mock--5 .sm-rule { background: #7a5e10; }
+    .slide-mock--5 .sm-sub { color: #7a6a50; }
+
+    /* ── Entrance animations ────────────────────────────────────────── */
+    @media (prefers-reduced-motion: no-preference) {
+      .hero__kicker,
+      .hero__headline,
+      .hero__sub,
+      .hero__actions {
+        opacity: 0;
+        transform: translateY(14px);
+        animation: fade-up 0.55s ease forwards;
+      }
+      .hero__kicker    { animation-delay: 0.05s; }
+      .hero__headline  { animation-delay: 0.18s; }
+      .hero__sub       { animation-delay: 0.32s; }
+      .hero__actions   { animation-delay: 0.44s; }
+
+      .slide-mock {
+        opacity: 0;
+        animation: slide-emerge 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+      }
+      .slide-mock--1 { animation-delay: 0.55s; animation-name: slide-emerge-1; }
+      .slide-mock--2 { animation-delay: 0.72s; animation-name: slide-emerge-2; }
+      .slide-mock--3 { animation-delay: 0.88s; animation-name: slide-emerge-3; }
+      .slide-mock--4 { animation-delay: 1.04s; animation-name: slide-emerge-4; }
+      .slide-mock--5 { animation-delay: 1.18s; animation-name: slide-emerge-5; }
+
+      @keyframes fade-up {
+        to { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes slide-emerge-1 {
+        from { opacity: 0; transform: translateY(18px) rotate(-1.5deg); }
+        to   { opacity: 1; transform: translateY(0)   rotate(-1.5deg); }
+      }
+      @keyframes slide-emerge-2 {
+        from { opacity: 0; transform: translateY(18px) rotate(1.2deg); }
+        to   { opacity: 1; transform: translateY(0)   rotate(1.2deg); }
+      }
+      @keyframes slide-emerge-3 {
+        from { opacity: 0; transform: translateY(18px) rotate(-0.8deg); }
+        to   { opacity: 1; transform: translateY(0)   rotate(-0.8deg); }
+      }
+      @keyframes slide-emerge-4 {
+        from { opacity: 0; transform: translateY(18px) rotate(1.8deg); }
+        to   { opacity: 1; transform: translateY(0)   rotate(1.8deg); }
+      }
+      @keyframes slide-emerge-5 {
+        from { opacity: 0; transform: translateY(18px) rotate(-1.2deg); }
+        to   { opacity: 1; transform: translateY(0)   rotate(-1.2deg); }
+      }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Navigation -->
+<header>
+  <nav class="nav" aria-label="Main navigation">
+    <div class="container">
+      <div class="nav__inner">
+        <a href="#" class="nav__wordmark">
+          <svg width="15" height="13" viewBox="0 0 15 13" fill="none" aria-hidden="true">
+            <rect x="0.6" y="0.6" width="9.8" height="7.8" rx="0.8" stroke="currentColor" stroke-width="1.2"/>
+            <rect x="4.6" y="3.6" width="9.8" height="7.8" rx="0.8" stroke="currentColor" stroke-width="1.2" fill="#0a0a08"/>
+          </svg>
+          DECKGEN
+        </a>
+        <div class="nav__actions">
+          <a href="#modes" class="nav__link">Modes</a>
+          <a href="#quick-start" class="nav__link">Quick start</a>
+        </div>
+      </div>
+    </div>
+  </nav>
+</header>
+
+<main>
+
+  <!-- Hero -->
+  <section class="hero" aria-labelledby="hero-headline">
+    <div class="container">
+      <div class="hero__inner">
+        <div class="hero__split">
+
+          <div class="hero__text">
+            <p class="hero__kicker">v1.1.0 &nbsp;·&nbsp; Node.js CLI &nbsp;·&nbsp; MIT licence</p>
+            <h1 class="hero__headline" id="hero-headline">
+              Decks that look<br><em>special,</em><br>not boring.
+            </h1>
+            <p class="hero__sub">
+              Deckgen is a command-line tool that writes your reveal.js presentation &mdash; outline to HTML &mdash; using an LLM.
+            </p>
+            <div class="hero__actions">
+              <a href="#quick-start" class="btn-primary">Quick start</a>
+              <a href="#how-it-works" class="btn-secondary">How it works &rarr;</a>
+            </div>
+          </div>
+
+          <div class="hero__gallery" role="img" aria-label="Example title slides generated by Deckgen across six use cases">
+
+            <!-- Slide 1: Urban Cycling — visual journalism, deep navy -->
+            <article class="slide-mock slide-mock--1" aria-hidden="true">
+              <div class="sm-photo"></div>
+              <div class="sm-content">
+                <span class="sm-eyebrow">Visual journalism</span>
+                <h3 class="sm-title">The Future of Urban Cycling</h3>
+                <span class="sm-rule"></span>
+                <p class="sm-sub">Cities reclaiming the street &mdash; a 40-year retrospective</p>
+              </div>
+            </article>
+
+            <!-- Slide 2: Investor Briefing — pitch deck, warm black & amber -->
+            <article class="slide-mock slide-mock--2" aria-hidden="true">
+                <div class="sm-photo"></div>
+              <div class="sm-content">
+                <span class="sm-eyebrow">Pitch deck &nbsp;&middot;&nbsp; Series B</span>
+                <h3 class="sm-title">Q4 2025<br>Investor Briefing</h3>
+                <span class="sm-rule"></span>
+                <p class="sm-sub">Revenue &pound;4.2M &nbsp;&middot;&nbsp; 340% YoY growth</p>
+              </div>
+            </article>
+
+            <!-- Slide 3: Climate Science — data-driven, steel blue & orange -->
+            <article class="slide-mock slide-mock--3" aria-hidden="true">
+              <div class="sm-photo"></div>
+              <div class="sm-content">
+                <span class="sm-eyebrow">Data-driven</span>
+                <h3 class="sm-title">Climate Science:<br>2050 Projections</h3>
+                <span class="sm-rule"></span>
+                <p class="sm-sub">Understanding today. Preparing for tomorrow.</p>
+              </div>
+            </article>
+
+            <!-- Slide 4: Quantum Computing — teaching, near-black & cyan -->
+            <article class="slide-mock slide-mock--4" aria-hidden="true">
+                <div class="sm-photo"></div>
+              <div class="sm-content">
+                <span class="sm-eyebrow">Teaching &nbsp;&middot;&nbsp; Lecture series</span>
+                <h3 class="sm-title">Introduction to<br>Quantum Computing</h3>
+                <span class="sm-rule"></span>
+                <p class="sm-sub">Department of Physics &mdash; Autumn 2025</p>
+              </div>
+            </article>
+
+            <!-- Slide 5: Design Masterclass — workshop, warm paper & dark ink -->
+            <article class="slide-mock slide-mock--5" aria-hidden="true">
+              <div class="sm-content">
+                <span class="sm-eyebrow">Workshop</span>
+                <h3 class="sm-title">Design Thinking<br>Masterclass</h3>
+                <span class="sm-rule"></span>
+                <p class="sm-sub">A half-day session for product teams</p>
+              </div>
+            </article>
+
+          </div><!-- /hero__gallery -->
+
+        </div><!-- /hero__split -->
+      </div>
+    </div>
+  </section>
+
+  <!-- Terminal slab -->
+  <div class="terminal" role="region" aria-label="Example Deckgen session">
+    <div class="container">
+      <div class="terminal__inner">
+        <div class="terminal__output" id="term-output" aria-live="polite"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- How it works -->
+  <section class="section" id="how-it-works" aria-labelledby="phases-heading">
+    <div class="container">
+      <p class="section__kicker">Process</p>
+      <h2 class="section__heading" id="phases-heading">Five phases, one brief.</h2>
+      <div class="phases" role="list">
+        <div class="phase" role="listitem">
+          <span class="phase__num">01</span>
+          <div class="phase__name">Evidence</div>
+          <p class="phase__desc">Web search and workspace file scan surface domain context before any writing begins.</p>
+        </div>
+        <div class="phase" role="listitem">
+          <span class="phase__num">02</span>
+          <div class="phase__name">Outline</div>
+          <p class="phase__desc">The LLM proposes a story structure. Review, revise with plain-English instructions, or approve.</p>
+        </div>
+        <div class="phase" role="listitem">
+          <span class="phase__num">03</span>
+          <div class="phase__name">Design</div>
+          <p class="phase__desc">A unique design system is generated per deck &mdash; font pair, colour palette, one signature visual move.</p>
+        </div>
+        <div class="phase" role="listitem">
+          <span class="phase__num">04</span>
+          <div class="phase__name">Content</div>
+          <p class="phase__desc">Each slide is written in full: captions, statistics, quotes, and chart data drawn from the evidence gathered.</p>
+        </div>
+        <div class="phase" role="listitem">
+          <span class="phase__num">05</span>
+          <div class="phase__name">Build</div>
+          <p class="phase__desc">reveal.js is cloned, images resolved via Wikimedia Commons, and a self-contained HTML file written to disc.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Modes -->
+  <section class="section section--alt" id="modes" aria-labelledby="modes-heading">
+    <div class="container">
+      <p class="section__kicker">Use cases</p>
+      <h2 class="section__heading" id="modes-heading">Six modes for different kinds of deck.</h2>
+      <div class="modes" role="list">
+        <article class="mode" role="listitem">
+          <span class="mode__eyebrow">journalistic</span>
+          <h3 class="mode__name">Visual Journalism</h3>
+          <p class="mode__desc">Story-driven decks. Beautiful visual storytelling.</p>
+        </article>
+        <article class="mode" role="listitem">
+          <span class="mode__eyebrow">teaching</span>
+          <h3 class="mode__name">Teaching</h3>
+          <p class="mode__desc">Curriculum-aligned slides that uses official sources for the best lessons.</p>
+        </article>
+        <article class="mode" role="listitem">
+          <span class="mode__eyebrow">Data-Driven</span>
+          <h3 class="mode__name">Data-Driven</h3>
+          <p class="mode__desc">Boardroom-ready analysis.</p>
+        </article>
+        <article class="mode" role="listitem">
+          <span class="mode__eyebrow">pitch</span>
+          <h3 class="mode__name">Pitch Deck</h3>
+          <p class="mode__desc">Investor storytelling shaped around problem, solution, market, traction, business model, and ask.</p>
+        </article>
+        <article class="mode" role="listitem">
+          <span class="mode__eyebrow">keynote</span>
+          <h3 class="mode__name">Keynote / Conference</h3>
+          <p class="mode__desc">Speaker-led presentations.</p>
+        </article>
+        <article class="mode" role="listitem">
+          <span class="mode__eyebrow">workshop</span>
+          <h3 class="mode__name">Workshop / Training</h3>
+          <p class="mode__desc">Decks for facilitation, activities, reflection, and guided learning sequences.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- Slide types -->
+  <section class="section section--alt" id="slide-types" aria-labelledby="types-heading">
+    <div class="container">
+      <p class="section__kicker">Palette</p>
+      <h2 class="section__heading" id="types-heading">Ten slide types.</h2>
+      <div class="slide-types" role="list">
+        <div class="slide-type" role="listitem">
+          <span class="slide-type__name">Title Card</span>
+          <span class="slide-type__desc">Opens the deck; brief and subtitle set the frame.</span>
+        </div>
+        <div class="slide-type" role="listitem">
+          <span class="slide-type__name">Transition</span>
+          <span class="slide-type__desc">Sharp narrative pivot between major story beats.</span>
+        </div>
+        <div class="slide-type" role="listitem">
+          <span class="slide-type__name">Image Hero</span>
+          <span class="slide-type__desc">Full-bleed photograph with a short anchor label.</span>
+        </div>
+        <div class="slide-type" role="listitem">
+          <span class="slide-type__name">Caption Card</span>
+          <span class="slide-type__desc">Image with contextual annotation alongside.</span>
+        </div>
+        <div class="slide-type" role="listitem">
+          <span class="slide-type__name">Chart &mdash; Bar</span>
+          <span class="slide-type__desc">Vertical bar chart generated from real or modelled data.</span>
+        </div>
+        <div class="slide-type" role="listitem">
+          <span class="slide-type__name">Chart &mdash; Line</span>
+          <span class="slide-type__desc">Time-series line chart with branded axis styling.</span>
+        </div>
+        <div class="slide-type" role="listitem">
+          <span class="slide-type__name">Data Table</span>
+          <span class="slide-type__desc">Structured data with header row and value columns.</span>
+        </div>
+        <div class="slide-type" role="listitem">
+          <span class="slide-type__name">Quote Callout</span>
+          <span class="slide-type__desc">Attributed pull quote from a named source.</span>
+        </div>
+        <div class="slide-type" role="listitem">
+          <span class="slide-type__name">Stat Callout</span>
+          <span class="slide-type__desc">Single large statistic with a supporting context line.</span>
+        </div>
+        <div class="slide-type" role="listitem">
+          <span class="slide-type__name">Comparison</span>
+          <span class="slide-type__desc">Side-by-side contrast of two states or entities.</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Depth settings -->
+  <section class="section" id="depth" aria-labelledby="depth-heading">
+    <div class="container">
+      <p class="section__kicker">Scale</p>
+      <h2 class="section__heading" id="depth-heading">Five depth modes.</h2>
+      <table class="depth-table">
+        <thead>
+          <tr>
+            <th scope="col">Mode</th>
+            <th scope="col">Label</th>
+            <th scope="col">Concepts</th>
+            <th scope="col">Slides / concept</th>
+            <th scope="col">Approx. total</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="td-name">overview</td>
+            <td class="td-label">Quick overview</td>
+            <td class="td-muted">3&ndash;4</td>
+            <td class="td-muted">1</td>
+            <td class="td-muted">~4&ndash;5 slides</td>
+          </tr>
+          <tr>
+            <td class="td-name">focused</td>
+            <td class="td-label">Focused story</td>
+            <td class="td-muted">5&ndash;6</td>
+            <td class="td-muted">1&ndash;2</td>
+            <td class="td-muted">~8&ndash;10 slides</td>
+          </tr>
+          <tr>
+            <td class="td-name">standard</td>
+            <td class="td-label">Standard</td>
+            <td class="td-muted">7&ndash;8</td>
+            <td class="td-muted">2&ndash;3</td>
+            <td class="td-muted">~16&ndash;22 slides</td>
+          </tr>
+          <tr>
+            <td class="td-name">thorough</td>
+            <td class="td-label">Thorough</td>
+            <td class="td-muted">9&ndash;11</td>
+            <td class="td-muted">3&ndash;4</td>
+            <td class="td-muted">~28&ndash;40 slides</td>
+          </tr>
+          <tr>
+            <td class="td-name">comprehensive</td>
+            <td class="td-label">Comprehensive</td>
+            <td class="td-muted">13&ndash;16</td>
+            <td class="td-muted">4&ndash;5</td>
+            <td class="td-muted">~55&ndash;75 slides</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Quick start -->
+  <section class="section section--alt" id="quick-start" aria-labelledby="qs-heading">
+    <div class="container">
+      <p class="section__kicker">Installation</p>
+      <h2 class="section__heading" id="qs-heading">Quick start.</h2>
+
+      <div class="qs-block">
+        <p class="qs-label">1 &mdash; Clone, install, and register the command globally</p>
+        <div class="qs-code">
+          <pre>git clone https://github.com/your-username/deckgen.git
+cd deckgen
+npm install
+npm install -g .</pre>
+          <button class="copy-btn" aria-label="Copy install commands"
+            data-copy="git clone https://github.com/your-username/deckgen.git&#10;cd deckgen&#10;npm install&#10;npm install -g .">Copy</button>
+        </div>
+      </div>
+
+      <div class="qs-block">
+        <p class="qs-label">2 &mdash; Set your API key</p>
+        <div class="qs-code">
+          <pre>echo "GEMINI_API_KEY=your_key_here" > .env</pre>
+          <button class="copy-btn" aria-label="Copy API key setup"
+            data-copy="echo &quot;GEMINI_API_KEY=your_key_here&quot; > .env">Copy</button>
+        </div>
+      </div>
+
+      <div class="qs-block">
+        <p class="qs-label">3 &mdash; Run from any directory</p>
+        <div class="qs-code">
+          <pre>deckgen</pre>
+          <button class="copy-btn" aria-label="Copy deckgen command"
+            data-copy="deckgen">Copy</button>
+        </div>
+      </div>
+
+      <div class="qs-block">
+        <p class="qs-label">Pass a brief directly &mdash; skip the prompts</p>
+        <div class="qs-code">
+          <pre>deckgen --brief "The future of urban cycling" \
+        --provider gemini \
+        --depth focused \
+        --variant dark \
+        --serve</pre>
+          <button class="copy-btn" aria-label="Copy generate command"
+            data-copy="deckgen --brief &quot;The future of urban cycling&quot; --provider gemini --depth focused --variant dark --serve">Copy</button>
+        </div>
+      </div>
+
+      <div class="qs-block">
+        <p class="qs-label">Check environment and credentials</p>
+        <div class="qs-code">
+          <pre>deckgen doctor</pre>
+          <button class="copy-btn" aria-label="Copy doctor command"
+            data-copy="deckgen doctor">Copy</button>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+</main>
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="container">
+    <div class="footer__inner">
+      <span class="footer__left">Deckgen v1.1.0 &nbsp;&middot;&nbsp; MIT licence &nbsp;&middot;&nbsp; Node.js CLI</span>
+      <span class="footer__right">
+        <a href="#" rel="noopener noreferrer">GitHub</a>
+        &nbsp;&middot;&nbsp;
+        <a href="https://revealjs.com" rel="noopener noreferrer">reveal.js</a>
+      </span>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // ── Terminal typewriter ──────────────────────────────────────────────────
+  const LINES = [
+    { kind: 'prompt', text: 'deckgen --brief "The future of urban cycling" --depth focused' },
+    { kind: 'blank' },
+    { kind: 'phase', text: '  DECKGEN  v1.1.0' },
+    { kind: 'blank' },
+    { kind: 'phase', text: '  ── Evidence ────────────────────────────────────────────────────' },
+    { kind: 'rich', html: '  <span class="t-done">✓</span> <span class="t-value">Searched the web</span>                                  <span class="t-label">(2.4s)</span>' },
+    { kind: 'rich', html: '  <span class="t-done">✓</span> <span class="t-value">Found 12 sources across 6 domains</span>                 <span class="t-label">(2.4s)</span>' },
+    { kind: 'blank' },
+    { kind: 'phase', text: '  ── Outline ─────────────────────────────────────────────────────' },
+    { kind: 'rich', html: '  <span class="t-done">✓</span> <span class="t-value">Generated 9-concept outline</span>                       <span class="t-label">(3.1s)</span>' },
+    { kind: 'blank' },
+    { kind: 'rich', html: '    <span class="t-number"> 1.</span>  <span class="t-type">[Title Card]    </span>  <span class="t-title">"The Future of Urban Cycling"</span>' },
+    { kind: 'rich', html: '    <span class="t-number"> 2.</span>  <span class="t-type">[Image Hero]    </span>  <span class="t-title">"Cities Reclaiming the Street"</span>' },
+    { kind: 'rich', html: '    <span class="t-number"> 3.</span>  <span class="t-type">[Stat Callout]  </span>  <span class="t-title">"38% of Short Journeys Under 3 Miles"</span>' },
+    { kind: 'rich', html: '    <span class="t-number"> 4.</span>  <span class="t-type">[Chart — Bar]   </span>  <span class="t-title">"Modal Share by City"</span>' },
+    { kind: 'rich', html: '    <span class="t-number"> 5.</span>  <span class="t-type">[Quote Callout] </span>  <span class="t-title">"Infrastructure Drives Behaviour"</span>' },
+    { kind: 'rich', html: '    <span class="t-number"> 6.</span>  <span class="t-type">[Image Hero]    </span>  <span class="t-title">"Amsterdam\'s 40-Year Experiment"</span>' },
+    { kind: 'rich', html: '    <span class="t-number"> 7.</span>  <span class="t-type">[Data Table]    </span>  <span class="t-title">"Investment vs. Ridership Growth"</span>' },
+    { kind: 'rich', html: '    <span class="t-number"> 8.</span>  <span class="t-type">[Comparison]    </span>  <span class="t-title">"Before and After — Paris"</span>' },
+    { kind: 'rich', html: '    <span class="t-number"> 9.</span>  <span class="t-type">[Caption Card]  </span>  <span class="t-title">"The Road Ahead"</span>' },
+    { kind: 'blank' },
+    { kind: 'rich', html: '  <span class="t-label">Proceed? [Y/n]</span>  <span class="t-value">y</span>' },
+    { kind: 'blank' },
+    { kind: 'phase', text: '  ── Design ──────────────────────────────────────────────────────' },
+    { kind: 'rich', html: '  <span class="t-done">✓</span> <span class="t-value">Design system generated</span>                            <span class="t-label">(1.8s)</span>' },
+    { kind: 'rich', html: '    <span class="t-label">Display   </span> <span class="t-value">"Cormorant Garamond"</span>' },
+    { kind: 'rich', html: '    <span class="t-label">Body      </span> <span class="t-value">"IBM Plex Sans"</span>' },
+    { kind: 'rich', html: '    <span class="t-label">Aesthetic </span> <span class="t-value">"forensic editorial — newsprint grain on deep ink"</span>' },
+    { kind: 'blank' },
+    { kind: 'phase', text: '  ── Content ─────────────────────────────────────────────────────' },
+    { kind: 'rich', html: '  <span class="t-done">✓</span> <span class="t-value">9 slides written and structured</span>                   <span class="t-label">(4.2s)</span>' },
+    { kind: 'blank' },
+    { kind: 'phase', text: '  ── Build ───────────────────────────────────────────────────────' },
+    { kind: 'rich', html: '  <span class="t-done">✓</span> <span class="t-value">reveal.js up to date</span>' },
+    { kind: 'rich', html: '  <span class="t-done">✓</span> <span class="t-value">Resolved 4 images via Wikimedia Commons</span>' },
+    { kind: 'rich', html: '  <span class="t-done">✓</span> <span class="t-value">Wrote </span><span class="t-path">output/future_of_urban_cycling_20260524/</span>' },
+    { kind: 'blank' },
+    { kind: 'rich', html: '  <span class="t-label">Open    </span><span class="t-url">http://localhost:8000</span>' },
+    { kind: 'blank' },
+  ];
+
+  const termEl = document.getElementById('term-output');
+  const terminalSection = termEl.closest('.terminal');
+  let termStarted = false;
+
+  function renderTerminal() {
+    if (termStarted) return;
+    termStarted = true;
+
+    const motionOk = window.matchMedia('(prefers-reduced-motion: no-preference)').matches;
+
+    if (!motionOk) {
+      LINES.forEach(line => termEl.appendChild(makeLine(line)));
+      return;
+    }
+
+    let i = 0;
+    function next() {
+      if (i >= LINES.length) return;
+      const line = LINES[i++];
+      const el = makeLine(line);
+
+      if (i === 1) {
+        // Typewriter the first line (the shell command)
+        el.textContent = '';
+        termEl.appendChild(el);
+        let ci = 0;
+        const full = line.text;
+        function typeChar() {
+          if (ci < full.length) {
+            el.textContent += full[ci++];
+            setTimeout(typeChar, ci < 2 ? 60 : ci < 6 ? 35 : 16);
+          } else {
+            setTimeout(next, 160);
+          }
+        }
+        setTimeout(typeChar, 300);
+      } else {
+        termEl.appendChild(el);
+        const delay = line.kind === 'blank' ? 30
+          : line.kind === 'phase' ? 55
+          : 48;
+        setTimeout(next, delay);
+      }
+    }
+    next();
+  }
+
+  function makeLine(line) {
+    const el = document.createElement('div');
+    if (line.kind === 'blank') {
+      el.className = 't-blank';
+    } else if (line.kind === 'rich') {
+      el.className = 't-rich';
+      el.innerHTML = line.html;
+    } else {
+      el.className = 't-' + line.kind;
+      el.textContent = line.text;
+    }
+    return el;
+  }
+
+  function shouldStartTerminal() {
+    if (!terminalSection) return false;
+    const sectionTop = terminalSection.getBoundingClientRect().top;
+    return window.scrollY > 160 && sectionTop < window.innerHeight * 0.9;
+  }
+
+  function handleScrollStart() {
+    if (termStarted) return;
+    if (!shouldStartTerminal()) return;
+    renderTerminal();
+    window.removeEventListener('scroll', handleScrollStart);
+  }
+
+  window.addEventListener('scroll', handleScrollStart, { passive: true });
+  handleScrollStart();
+
+  // ── Copy buttons ─────────────────────────────────────────────────────────
+  document.querySelectorAll('.copy-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const text = btn.dataset.copy;
+      try {
+        await navigator.clipboard.writeText(text);
+        btn.textContent = 'Copied';
+        btn.classList.add('copied');
+        setTimeout(() => {
+          btn.textContent = 'Copy';
+          btn.classList.remove('copied');
+        }, 1800);
+      } catch {
+        btn.textContent = 'Failed';
+        setTimeout(() => { btn.textContent = 'Copy'; }, 1500);
+      }
+    });
+  });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,27 @@
+{
+  "name": "deckgen",
+  "version": "1.1.0",
+  "description": "Terminal app for generating presentation decks",
+  "main": "index.js",
+  "type": "module",
+  "bin": {
+    "deckgen": "./index.js"
+  },
+  "scripts": {
+    "start":          "node index.js",
+    "generate":       "node index.js generate",
+    "plan":           "node index.js plan",
+    "doctor":         "node index.js doctor",
+    "test":           "node --check index.js src/cli.js src/ui.js src/utils.js src/auth.js src/llm.js src/evidence.js src/modes.js src/pipeline/outline.js src/pipeline/content.js src/pipeline/design.js src/pipeline/images.js src/pipeline/html.js src/pipeline/artefacts.js src/commands/generate.js src/commands/plan.js src/commands/doctor.js && echo 'Syntax OK'",
+    "test:smoke":     "node tests/smoke.js",
+    "serve:output":   "npx http-server output -p 8000",
+    "serve:latest":   "node scripts/serve-latest.js"
+  },
+  "dependencies": {
+    "@github/copilot-sdk": "^1.0.0-beta.6",
+    "@inquirer/prompts": "^4.3.3",
+    "chalk": "^5.6.2",
+    "dotenv": "^16.6.1",
+    "ora": "^7.0.1"
+  }
+}

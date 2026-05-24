@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gunzip -c \"/Users/TJ7755/.claude/projects/-Users-TJ7755-Documents-Coding-Deckgen/11bfea31-4d53-46d2-8bcb-7fc609495e83/tool-results/webfetch-1779527673102-igyl42.bin\")",
+      "Bash(tar -t)",
+      "Bash(grep -v \"/$\")",
+      "Bash(tar -xO \"deckgen/project/terminal-app.jsx\")",
+      "WebSearch",
+      "WebFetch(domain:docs.github.com)",
+      "WebFetch(domain:www.npmjs.com)",
+      "Bash(npm list *)",
+      "Bash(node -e \"import\\('@github/copilot-sdk'\\).then\\(m => console.log\\(Object.keys\\(m\\)\\)\\).catch\\(e => console.error\\(e.message\\)\\)\")",
+      "Bash(npm show *)",
+      "Bash(node *)"
+    ]
+  }
+}
