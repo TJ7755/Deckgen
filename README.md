@@ -1,77 +1,118 @@
 Deckgen
 
-A tiny CLI that generates reveal.js presentations using an LLM.
+Deckgen is a Node.js CLI that writes reveal.js presentation decks from a single brief.
+
+Decks are built around one idea: one brief, five phases, a deck worth showing.
+
+What it does
+
+- Generates presentation decks with an LLM, then writes a self-contained reveal.js output folder.
+- Uses web search and workspace file scanning to gather evidence before drafting the deck.
+- Resolves images, builds chart data where needed, and writes the finished deck into `output/`.
+
+Five phases, one brief
+
+1. Evidence: web search and workspace file scan surface relevant context before any writing begins.
+2. Outline: the LLM proposes a story structure, which you can review and revise in plain English.
+3. Design: a fresh design system is generated for each deck, including a font pair, colour palette, and a signature visual move.
+4. Content: each slide is expanded into full copy, with captions, statistics, quotes, and chart data where needed.
+5. Build: reveal.js is cloned, images are resolved, and the final HTML deck is written to disc.
+
+Six modes for different kinds of deck
+
+- Visual Journalism: story-driven decks with strong visual storytelling.
+- Teaching: curriculum-aligned slides with official sources where possible.
+- Data-Driven: boardroom-ready analysis.
+- Pitch Deck: investor storytelling shaped around problem, solution, market, traction, business model, and ask.
+- Keynote / Conference: speaker-led presentations.
+- Workshop / Training: decks for facilitation, activities, reflection, and guided learning sequences.
+
+Ten slide types
+
+- Title Card
+- Transition
+- Image Hero
+- Caption Card
+- Chart - Bar
+- Chart - Line
+- Data Table
+- Quote Callout
+- Stat Callout
+- Comparison
+
+Five depth modes
+
+- `overview`: quick overview, about 4 to 5 slides.
+- `focused`: focused story, about 8 to 10 slides.
+- `standard`: standard, about 16 to 22 slides.
+- `thorough`: thorough, about 28 to 40 slides.
+- `comprehensive`: comprehensive, about 55 to 75 slides.
 
 Quick start
 
-- Install nothing special — the project is a single ES module: run either:
+1. Clone the repository and install dependencies.
+
+```
+git clone https://github.com/your-username/deckgen.git
+cd deckgen
+npm install
+```
+
+2. Set your provider credentials.
+
+```
+echo "GEMINI_API_KEY=your_key_here" > .env
+```
+
+If you are using Copilot, set `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, or `GITHUB_TOKEN` instead.
+
+3. Run the CLI.
 
 ```
 npm start
 ```
 
-or
+Or run it directly:
 
 ```
 node index.js
 ```
 
-How it works
+4. Pass a brief directly when you want to skip prompts.
 
-- `index.js` generates an outline from a brief, expands slides, resolves images and writes output to the `output/` folder.
-- Generated reveal.js presentations live under `output/<slug>_<YYYYMMDD_HHMMSS>/reveal.js/`.
+```
+npm start -- --brief "The future of urban cycling" --provider gemini --depth focused --variant dark --serve
+```
+
+5. Install globally if you want the `deckgen` command available from any directory.
+
+```
+npm install -g .
+deckgen
+```
+
+Commands
+
+- `npm start`: run the default generate flow.
+- `npm run generate`: run generate explicitly.
+- `npm run plan`: generate an outline and design plan only.
+- `npm run doctor`: check environment and credentials.
+- `npm run serve:output`: serve the `output/` folder on port 8000.
+- `npm run serve:latest`: serve the most recently generated deck.
 
 Configuration
 
-- Provider: set `DECKGEN_PROVIDER` to `gemini` or `copilot`.
-- Gemini: set `GEMINI_API_KEY` in your environment if using Gemini.
-- Copilot: set `COPILOT_GITHUB_TOKEN` (or `GH_TOKEN` / `GITHUB_TOKEN`) if using Copilot.
+- `DECKGEN_PROVIDER`: set the default provider to `gemini` or `copilot`.
+- `GEMINI_API_KEY`: used for Gemini auth.
+- `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, or `GITHUB_TOKEN`: used for Copilot auth.
+- `DECKGEN_COPILOT_MODEL`: optional Copilot model override.
 
-Notes
+Output
 
-- This repository contains no build step or tests; the CLI is run directly.
-- See [CLAUDE.md](CLAUDE.md#L1) for additional implementation notes and behaviour.
-
-Examples
-
-- Generate a deck non-interactively (pass args through `npm`):
-
-```
-npm start -- --brief "The future of urban cycling" --provider copilot --depth focused --variant light --serve
-```
-
-- Or run the CLI directly with Node:
-
-```
-node index.js --brief "The future of urban cycling" --provider gemini --serve
-```
-
-- To run without starting a server (interactive or script) and serve later:
-
-```
-# after a run, change into the reveal.js folder for the generated deck and serve
-cd output/<slug>_<YYYYMMDD_HHMMSS>/reveal.js && python3 -m http.server 8000
-```
-
-Serve generated decks
-
-- Quick: run the generated deck from `output/` with an npm script that serves the `output` folder on port 8000:
-
-```
-npm run serve:output
-```
-
-- Then open `http://localhost:8000/` in your browser and navigate to the generated deck folder.
-
-- Quick: serve the most-recently generated deck and open it in your browser:
-
-```
-npm run serve:latest
-```
+- Generated decks live under `output/<slug>_<YYYYMMDD_HHMMSS>/reveal.js/`.
+- The generated folder includes `index.html`, resolved images, chart artefacts, and the reveal.js source tree.
 
 Help
-
-- Show the built-in help and available options:
 
 ```
 node index.js --help
