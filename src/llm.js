@@ -2,13 +2,14 @@ import { CopilotClient, approveAll } from '@github/copilot-sdk';
 import { Codex } from '@openai/codex-sdk';
 import fs from 'fs/promises';
 import path from 'path';
-import { GEMINI_MODEL, SYSTEM_PROMPT, DEFAULT_CODEX_MODEL } from './constants.js';
+import { DEFAULT_GEMINI_MODEL, SYSTEM_PROMPT, DEFAULT_CODEX_MODEL } from './constants.js';
 import { makeCopilotClient } from './auth.js';
 import { parseJsonObject } from './utils.js';
 
 export async function callGemini(ctx, prompt) {
+  const model = ctx.geminiModel || DEFAULT_GEMINI_MODEL;
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${ctx.geminiApiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${ctx.geminiApiKey}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -24,7 +25,7 @@ export async function callGemini(ctx, prompt) {
   const data = await res.json();
   if (!res.ok) {
     const apiMsg = data?.error?.message || JSON.stringify(data);
-    throw new Error(`Gemini API error (${res.status}) model ${GEMINI_MODEL}: ${apiMsg}`);
+    throw new Error(`Gemini API error (${res.status}) model ${model}: ${apiMsg}`);
   }
 
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text;

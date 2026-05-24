@@ -11,7 +11,11 @@
       "Bash(npm list *)",
       "Bash(node -e \"import\\('@github/copilot-sdk'\\).then\\(m => console.log\\(Object.keys\\(m\\)\\)\\).catch\\(e => console.error\\(e.message\\)\\)\")",
       "Bash(npm show *)",
-      "Bash(node *)"
+      "Bash(node *)",
+      "WebFetch(domain:api.anthropic.com)",
+      "Bash(gunzip -c \"/Users/TJ7755/.claude/projects/-Users-TJ7755-Documents-Coding-Deckgen/672826d4-f677-49b7-b33e-25dff722517f/tool-results/webfetch-1779637953145-5b1f8h.bin\")",
+      "Bash(tar -x -C /tmp/deckgen_design)",
+      "Read(//tmp/**)"
     ]
   }
 }

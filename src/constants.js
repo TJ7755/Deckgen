@@ -1,4 +1,10 @@
-export const GEMINI_MODEL = 'gemini-3.1-flash-lite';
+export const DEFAULT_GEMINI_MODEL = 'gemini-3.1-flash-lite';
+
+export const GEMINI_MODELS = [
+  { id: 'gemini-3.1-flash-lite',  name: 'Gemini 3.1 Flash Lite',     description: 'Fast, lightweight — default'              },
+  { id: 'gemini-3.5-flash',       name: 'Gemini 3.5 Flash',          description: 'Most intelligent, frontier performance'   },
+  { id: 'gemini-3.1-pro-preview', name: 'Gemini 3.1 Pro (preview)',  description: 'Advanced intelligence, complex tasks'     },
+];
 export const DEFAULT_CODEX_MODEL = 'gpt-5.4';
 export const GH_DEVICE_CLIENT_ID = 'Iv1.b507a08c87ecfe98';
 export const COPILOT_TOKEN_ENV_VARS = ['COPILOT_GITHUB_TOKEN', 'GH_TOKEN', 'GITHUB_TOKEN'];

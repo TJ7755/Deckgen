@@ -3,7 +3,7 @@ import { CopilotClient, approveAll } from '@github/copilot-sdk';
 import chalk from 'chalk';
 import ora from 'ora';
 import { normalizeApiKey, upsertEnvVar, sleep } from './utils.js';
-import { GH_DEVICE_CLIENT_ID, COPILOT_TOKEN_ENV_VARS, DEFAULT_COPILOT_MODEL } from './constants.js';
+import { GH_DEVICE_CLIENT_ID, COPILOT_TOKEN_ENV_VARS, DEFAULT_COPILOT_MODEL, DEFAULT_GEMINI_MODEL, GEMINI_MODELS } from './constants.js';
 
 // ── Gemini ────────────────────────────────────────────────────────────────────
 
@@ -32,6 +32,27 @@ export async function ensureGeminiApiKey(ctx) {
   ctx.geminiApiKey = cleaned;
   await upsertEnvVar('GEMINI_API_KEY', cleaned);
   console.log(chalk.green('  Saved GEMINI_API_KEY to .env'));
+}
+
+export async function pickGeminiModel(ctx) {
+  ctx.geminiModel = String(process.env.DECKGEN_GEMINI_MODEL || '').trim() || DEFAULT_GEMINI_MODEL;
+
+  if (ctx.yes) {
+    const found = GEMINI_MODELS.find(m => m.id === ctx.geminiModel);
+    if (!found) ctx.geminiModel = DEFAULT_GEMINI_MODEL;
+    return;
+  }
+
+  const defaultModel = GEMINI_MODELS.find(m => m.id === ctx.geminiModel) || GEMINI_MODELS[0];
+  ctx.geminiModel = await select({
+    message: '  Select Gemini model:',
+    choices: GEMINI_MODELS.map(m => ({
+      name: `${m.name}  ${chalk.dim(m.description)}`,
+      value: m.id,
+    })),
+    default: defaultModel.id,
+  });
+  await upsertEnvVar('DECKGEN_GEMINI_MODEL', ctx.geminiModel).catch(() => {});
 }
 
 // ── GitHub Copilot ────────────────────────────────────────────────────────────

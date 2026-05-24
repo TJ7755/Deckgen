@@ -3,7 +3,7 @@ import chalk from 'chalk';
 import ora from 'ora';
 import fs from 'fs/promises';
 import path from 'path';
-import { ensureGeminiApiKey, ensureCopilotAuth, ensureCodexAuth, pickCopilotModel } from '../auth.js';
+import { ensureGeminiApiKey, ensureCopilotAuth, ensureCodexAuth, pickGeminiModel, pickCopilotModel } from '../auth.js';
 import { collectPlanningEvidence } from '../evidence.js';
 import { generateOutline, reviseOutline } from '../pipeline/outline.js';
 import { generateDesignSystem } from '../pipeline/design.js';
@@ -33,6 +33,7 @@ export async function planCommand(ctx) {
   // ── Auth ──────────────────────────────────────────────────────────────────
   if (ctx.provider === 'gemini') {
     await ensureGeminiApiKey(ctx);
+    await pickGeminiModel(ctx);
   } else if (ctx.provider === 'codex') {
     await ensureCodexAuth(ctx);
   } else {
@@ -112,7 +113,7 @@ export async function planCommand(ctx) {
     ? `GitHub Copilot (${ctx.copilotModel})`
     : ctx.provider === 'codex'
       ? `Codex (${ctx.codexModel})`
-      : 'Gemini';
+      : `Gemini (${ctx.geminiModel})`;
   const outlinePhase  = startPhase(ctx, 'Outline');
   const outSpinner    = ora(`  Generating via ${providerLabel}…`).start();
 

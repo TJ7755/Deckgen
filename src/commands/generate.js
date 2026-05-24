@@ -5,7 +5,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import net from 'net';
 import { spawn } from 'child_process';
-import { ensureGeminiApiKey, ensureCopilotAuth, ensureCodexAuth, pickCopilotModel } from '../auth.js';
+import { ensureGeminiApiKey, ensureCopilotAuth, ensureCodexAuth, pickGeminiModel, pickCopilotModel } from '../auth.js';
 import { collectPlanningEvidence, collectContentEvidence } from '../evidence.js';
 import { generateOutline, reviseOutline } from '../pipeline/outline.js';
 import { generateSlideContent } from '../pipeline/content.js';
@@ -175,7 +175,8 @@ export async function generateCommand(ctx) {
 
   if (ctx.provider === 'gemini') {
     await ensureGeminiApiKey(ctx);
-    statusOk('Authenticated via Gemini');
+    await pickGeminiModel(ctx);
+    statusOk(`Authenticated via Gemini  ${chalk.dim(ctx.geminiModel)}`);
   } else if (ctx.provider === 'codex') {
     await ensureCodexAuth(ctx);
     statusOk(`Authenticated via Codex  ${chalk.dim(ctx.codexModel)}`);
@@ -277,7 +278,7 @@ export async function generateCommand(ctx) {
     ? `GitHub Copilot (${ctx.copilotModel})`
     : ctx.provider === 'codex'
       ? `Codex (${ctx.codexModel})`
-      : 'Gemini';
+      : `Gemini (${ctx.geminiModel})`;
   const outlinePhase  = startPhase(ctx, 'Outline');
   const outSpinner    = ora(`  Generating via ${providerLabel}…`).start();
 
