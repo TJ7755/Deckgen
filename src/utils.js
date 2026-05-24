@@ -14,11 +14,41 @@ export const makeDeckStamp = () =>
 
 export function normalizeProvider(value) {
   const v = String(value || '').trim().toLowerCase();
-  return v === 'copilot' ? 'copilot' : 'gemini';
+  if (v === 'copilot') return 'copilot';
+  if (v === 'codex') return 'codex';
+  return 'gemini';
 }
 
 export function normalizeApiKey(value) {
   return String(value || '').trim().replace(/^GEMINI_API_KEY=/, '').trim();
+}
+
+export function parseJsonObject(value) {
+  const text = String(value || '').trim();
+  if (!text) return null;
+  try {
+    const parsed = JSON.parse(text);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function saveDeckgenRunState(state) {
+  const dir = path.join(process.cwd(), '.deckgen');
+  const filePath = path.join(dir, 'last-run.json');
+  await fs.mkdir(dir, { recursive: true });
+  await fs.writeFile(filePath, `${JSON.stringify({ ...state, updatedAt: new Date().toISOString() }, null, 2)}\n`, 'utf-8');
+}
+
+export async function loadDeckgenRunState() {
+  const filePath = path.join(process.cwd(), '.deckgen', 'last-run.json');
+  try {
+    const text = await fs.readFile(filePath, 'utf-8');
+    return parseJsonObject(text);
+  } catch {
+    return null;
+  }
 }
 
 export function truncateText(value, max = 220) {

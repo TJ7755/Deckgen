@@ -182,10 +182,10 @@ ${sep}
     ${chalk.cyan('generate')}   Build a presentation deck   ${chalk.dim('(default)')}
     ${chalk.cyan('plan')}       Generate outline and design plan only
     ${chalk.cyan('doctor')}     Check environment and credentials
-    ${chalk.cyan('resume')}     Resume an interrupted run   ${chalk.dim('(not yet available)')}
+    ${chalk.cyan('resume')}     Resume the last saved run
 
   ${chalk.bold('Options')}
-    --provider <gemini|copilot>   LLM provider  ${chalk.dim('(default: gemini)')}
+    --provider <gemini|copilot|codex>   LLM provider  ${chalk.dim('(default: gemini)')}
     --mode     <mode>             journalistic | teaching | corporate | pitch | keynote | workshop
     --brief    <text>             Deck subject; skips the interactive prompt
     --depth    <level>            overview | focused | standard | thorough | comprehensive
@@ -197,7 +197,7 @@ ${sep}
     --help, -h                    Show this help text
 
   ${chalk.bold('Non-interactive example')}
-    deckgen generate --provider gemini --mode journalistic \\
+    deckgen generate --provider codex --mode journalistic \
       --brief "The future of nuclear energy" \\
       --depth standard --variant dark --yes --no-serve
 

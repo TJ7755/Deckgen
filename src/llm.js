@@ -1,6 +1,10 @@
 import { CopilotClient, approveAll } from '@github/copilot-sdk';
-import { GEMINI_MODEL, SYSTEM_PROMPT } from './constants.js';
+import { Codex } from '@openai/codex-sdk';
+import fs from 'fs/promises';
+import path from 'path';
+import { GEMINI_MODEL, SYSTEM_PROMPT, DEFAULT_CODEX_MODEL } from './constants.js';
 import { makeCopilotClient } from './auth.js';
+import { parseJsonObject } from './utils.js';
 
 export async function callGemini(ctx, prompt) {
   const res = await fetch(
@@ -51,6 +55,90 @@ export async function callCopilot(ctx, prompt) {
   }
 }
 
-export function callLLM(ctx, prompt) {
-  return ctx.provider === 'copilot' ? callCopilot(ctx, prompt) : callGemini(ctx, prompt);
+async function loadCodexThreadId(ctx) {
+  if (ctx.codexThreadId) return ctx.codexThreadId;
+
+  const persistedPath = path.join(process.cwd(), '.deckgen', 'codex-thread-id.json');
+  try {
+    const text = await fs.readFile(persistedPath, 'utf-8');
+    const data = parseJsonObject(text);
+    const threadId = String(data?.threadId || '').trim();
+    if (threadId) {
+      ctx.codexThreadId = threadId;
+      return threadId;
+    }
+  } catch {}
+
+  return '';
+}
+
+async function saveCodexThreadId(threadId) {
+  if (!threadId) return;
+
+  const dir = path.join(process.cwd(), '.deckgen');
+  const filePath = path.join(dir, 'codex-thread-id.json');
+  await fs.mkdir(dir, { recursive: true });
+  await fs.writeFile(filePath, `${JSON.stringify({ threadId, updatedAt: new Date().toISOString() }, null, 2)}\n`, 'utf-8');
+}
+
+export async function callCodex(ctx, prompt, options = {}) {
+  const codex = new Codex({
+    apiKey: ctx.codexApiKey || undefined,
+    config: ctx.codexConfig || undefined,
+  });
+  const threadOptions = {
+    model: ctx.codexModel || DEFAULT_CODEX_MODEL,
+    workingDirectory: process.cwd(),
+    skipGitRepoCheck: true,
+    sandboxMode: 'read-only',
+    approvalPolicy: 'never',
+    networkAccessEnabled: true,
+    webSearchMode: 'live',
+  };
+
+  try {
+    const threadId = await loadCodexThreadId(ctx);
+    const thread = threadId
+      ? codex.resumeThread(threadId, {
+          ...threadOptions,
+        })
+      : codex.startThread(threadOptions);
+
+    const input = Array.isArray(options.inputImages) && options.inputImages.length
+      ? [
+          { type: 'text', text: prompt },
+          ...options.inputImages.map(imagePath => ({ type: 'local_image', path: imagePath })),
+        ]
+      : prompt;
+
+    const streamed = await thread.runStreamed(input);
+    let finalResponse = '';
+
+    for await (const event of streamed.events) {
+      if (event.type === 'thread.started' && event.thread_id) {
+        ctx.codexThreadId = event.thread_id;
+        await saveCodexThreadId(event.thread_id).catch(() => {});
+      }
+      if (event.type === 'item.completed' && event.item?.type === 'agent_message') {
+        finalResponse = event.item.text || finalResponse;
+      }
+      if (event.type === 'turn.failed') {
+        throw new Error(event.error?.message || 'Codex turn failed');
+      }
+    }
+
+    ctx.codexThreadId = thread.id || ctx.codexThreadId || null;
+    await saveCodexThreadId(ctx.codexThreadId).catch(() => {});
+
+    if (!finalResponse) throw new Error('Codex returned no content');
+    return finalResponse;
+  } catch (err) {
+    throw new Error(`Codex error (model ${ctx.codexModel || DEFAULT_CODEX_MODEL}): ${err?.message || String(err)}`);
+  }
+}
+
+export function callLLM(ctx, prompt, options = {}) {
+  if (ctx.provider === 'copilot') return callCopilot(ctx, prompt);
+  if (ctx.provider === 'codex') return callCodex(ctx, prompt, options);
+  return callGemini(ctx, prompt);
 }

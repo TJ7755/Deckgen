@@ -1,7 +1,7 @@
 import { spawn } from 'child_process';
 import chalk from 'chalk';
 import { printSectionHeader, statusOk, statusWarn, statusErr, statusInfo } from '../ui.js';
-import { checkGeminiAuthStatus, checkCopilotAuthStatus } from '../auth.js';
+import { checkGeminiAuthStatus, checkCopilotAuthStatus, checkCodexAuthStatus } from '../auth.js';
 import { normalizeApiKey } from '../utils.js';
 
 function checkCommand(cmd, args = ['--version']) {
@@ -77,6 +77,9 @@ export async function doctorCommand(ctx) {
   const copilot = await checkCopilotAuthStatus();
   row('GitHub Copilot', copilot);
 
+  const codex = await checkCodexAuthStatus();
+  row('Codex', codex);
+
   printSectionHeader('Environment');
   statusInfo(`Node.js   ${process.version}`);
   statusInfo(`CWD       ${process.cwd()}`);
@@ -84,7 +87,7 @@ export async function doctorCommand(ctx) {
     statusInfo(`Provider  ${process.env.DECKGEN_PROVIDER}  ${chalk.dim('(DECKGEN_PROVIDER env)')}`);
   }
 
-  const allOk = python.ok && git.ok && network.ok && outputDir.ok && (gemini.ok || copilot.ok);
+  const allOk = python.ok && git.ok && network.ok && outputDir.ok && (gemini.ok || copilot.ok || codex.ok);
 
   console.log('');
   if (allOk) {
@@ -95,7 +98,7 @@ export async function doctorCommand(ctx) {
     if (!git.ok)    problems.push('git not found — required to clone reveal.js');
     if (!network.ok) problems.push('network unreachable — required for evidence search and image resolution');
     if (!outputDir.ok) problems.push('output directory not writable');
-    if (!gemini.ok && !copilot.ok) problems.push('no provider authenticated — set GEMINI_API_KEY or run deckgen and authenticate via Copilot');
+    if (!gemini.ok && !copilot.ok && !codex.ok) problems.push('no provider authenticated — set GEMINI_API_KEY, CODEX_API_KEY, or authenticate via Copilot');
 
     for (const p of problems) {
       statusWarn(p);

@@ -2,8 +2,9 @@ import { readFileSync } from 'fs';
 import path from 'path';
 import dotenv from 'dotenv';
 import chalk from 'chalk';
-import { normalizeProvider, normalizeApiKey } from './utils.js';
+import { normalizeProvider, normalizeApiKey, parseJsonObject, loadDeckgenRunState } from './utils.js';
 import { printHelp, printVersion } from './ui.js';
+import { DEFAULT_CODEX_MODEL } from './constants.js';
 
 dotenv.config();
 
@@ -69,8 +70,12 @@ function buildContext(args) {
     yes:         args.yes,
     serve:       args.serve,
     geminiApiKey,
+    codexApiKey: String(process.env.CODEX_API_KEY || process.env.OPENAI_API_KEY || '').trim(),
     copilotToken:  '',
     copilotModel:  String(process.env.DECKGEN_COPILOT_MODEL || '').trim() || 'gpt-5.4-mini',
+    codexModel:    String(process.env.DECKGEN_CODEX_MODEL || '').trim() || DEFAULT_CODEX_MODEL,
+    codexConfig:   parseJsonObject(process.env.DECKGEN_CODEX_CONFIG || ''),
+    codexThreadId: String(args.codexThreadId || process.env.DECKGEN_CODEX_THREAD_ID || '').trim() || '',
     startTime:   Date.now(),
     phases:      [],
     args,        // keep reference so commands can read providerSet, etc.
@@ -98,12 +103,24 @@ export async function run() {
     process.exit(0);
   }
 
-  const command = args.command || 'generate';
+  let command = args.command || 'generate';
 
   if (command === 'resume') {
-    console.log(chalk.yellow('\n  Resume is not yet available.\n'));
-    console.log(chalk.dim('  Interrupted runs must be restarted from the beginning.\n'));
-    process.exit(1);
+    const saved = await loadDeckgenRunState();
+    if (!saved) {
+      console.log(chalk.yellow('\n  Nothing to resume yet. Run generate or plan first.\n'));
+      process.exit(1);
+    }
+
+    command = String(saved.command || 'generate');
+    args.provider = saved.provider || args.provider;
+    args.providerSet = true;
+    args.mode = saved.mode || args.mode;
+    args.brief = saved.brief || args.brief;
+    args.depth = saved.depth || args.depth;
+    args.variant = saved.variant || args.variant;
+    args.codexThreadId = saved.codexThreadId || args.codexThreadId;
+    args.yes = true;
   }
 
   const ctx = buildContext(args);

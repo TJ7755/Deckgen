@@ -1,7 +1,52 @@
 export const GEMINI_MODEL = 'gemini-3.1-flash-lite';
+export const DEFAULT_CODEX_MODEL = 'gpt-5.4';
 export const GH_DEVICE_CLIENT_ID = 'Iv1.b507a08c87ecfe98';
 export const COPILOT_TOKEN_ENV_VARS = ['COPILOT_GITHUB_TOKEN', 'GH_TOKEN', 'GITHUB_TOKEN'];
 export const DEFAULT_COPILOT_MODEL = 'gpt-5.4-mini';
+
+export const PROVIDER_CAPABILITIES = {
+  gemini: {
+    label: 'Gemini',
+    webSearch: 'grounded',
+    persistentThreads: false,
+    localImageInput: false,
+  },
+  copilot: {
+    label: 'GitHub Copilot',
+    webSearch: 'external',
+    persistentThreads: false,
+    localImageInput: false,
+  },
+  codex: {
+    label: 'Codex',
+    webSearch: 'native',
+    persistentThreads: true,
+    localImageInput: true,
+  },
+};
+
+export function getProviderCapabilities(provider) {
+  const key = String(provider || 'gemini').trim().toLowerCase();
+  return PROVIDER_CAPABILITIES[key] || PROVIDER_CAPABILITIES.gemini;
+}
+
+export function describeProviderCapabilities(provider) {
+  const capabilities = getProviderCapabilities(provider);
+  const parts = [];
+
+  if (capabilities.webSearch === 'grounded') {
+    parts.push('Google Search grounding');
+  } else if (capabilities.webSearch === 'native') {
+    parts.push('native live web search');
+  } else {
+    parts.push('external web evidence from Deckgen');
+  }
+
+  if (capabilities.persistentThreads) parts.push('persistent threads');
+  if (capabilities.localImageInput) parts.push('local image input');
+
+  return `${capabilities.label}: ${parts.join('; ')}`;
+}
 
 export const SYSTEM_PROMPT = `You are Deckgen, a visual journalism presentation engine.
 Write in British English. Do not use emojis.

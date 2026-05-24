@@ -5,7 +5,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import net from 'net';
 import { spawn } from 'child_process';
-import { ensureGeminiApiKey, ensureCopilotAuth, pickCopilotModel } from '../auth.js';
+import { ensureGeminiApiKey, ensureCopilotAuth, ensureCodexAuth, pickCopilotModel } from '../auth.js';
 import { collectPlanningEvidence, collectContentEvidence } from '../evidence.js';
 import { generateOutline, reviseOutline } from '../pipeline/outline.js';
 import { generateSlideContent } from '../pipeline/content.js';
@@ -13,9 +13,9 @@ import { generateDesignSystem } from '../pipeline/design.js';
 import { resolveSlideImages } from '../pipeline/images.js';
 import { writeGeneratedArtifacts } from '../pipeline/artefacts.js';
 import { buildRevealHTML, sanitiseGeneratedHtml } from '../pipeline/html.js';
-import { FALLBACK_CONCEPTS, DEPTH_SETTINGS, TYPE_PALETTE, countSlides, allSlides } from '../constants.js';
+import { FALLBACK_CONCEPTS, DEPTH_SETTINGS, TYPE_PALETTE, countSlides, allSlides, getProviderCapabilities } from '../constants.js';
 import { MODE_CONFIGS, VALID_MODES, getModeConfig, DEFAULT_MODE } from '../modes.js';
-import { getLocalAssets, getPlanningFiles, slugify, makeDeckStamp, runCommand, truncateText } from '../utils.js';
+import { getLocalAssets, getPlanningFiles, slugify, makeDeckStamp, runCommand, truncateText, saveDeckgenRunState } from '../utils.js';
 import {
   printPhaseHeader, printSectionHeader, printOutline, printExpandedConcept,
   printRunSummary, statusOk, statusWarn, statusErr, statusInfo, statusHint,
@@ -166,6 +166,7 @@ export async function generateCommand(ctx) {
           choices: [
             { name: 'Gemini API', value: 'gemini' },
             { name: 'GitHub Copilot', value: 'copilot' },
+            { name: 'Codex', value: 'codex' },
           ],
         });
       } catch {}
@@ -175,6 +176,9 @@ export async function generateCommand(ctx) {
   if (ctx.provider === 'gemini') {
     await ensureGeminiApiKey(ctx);
     statusOk('Authenticated via Gemini');
+  } else if (ctx.provider === 'codex') {
+    await ensureCodexAuth(ctx);
+    statusOk(`Authenticated via Codex  ${chalk.dim(ctx.codexModel)}`);
   } else {
     await ensureCopilotAuth(ctx);
     await pickCopilotModel(ctx);
@@ -240,6 +244,16 @@ export async function generateCommand(ctx) {
     }
   }
 
+  await saveDeckgenRunState({
+    command: 'generate',
+    provider: ctx.provider,
+    mode: ctx.mode,
+    brief: ctx.brief,
+    depth: ctx.depth,
+    variant: ctx.variant,
+    codexThreadId: ctx.codexThreadId || '',
+  }).catch(() => {});
+
   console.log('');
 
   const assets        = await getLocalAssets();
@@ -259,7 +273,11 @@ export async function generateCommand(ctx) {
 
   // ── 2/5 Outline ───────────────────────────────────────────────────────────
   printPhaseHeader(2, 5, 'Outline');
-  const providerLabel = ctx.provider === 'copilot' ? `GitHub Copilot (${ctx.copilotModel})` : 'Gemini';
+  const providerLabel = ctx.provider === 'copilot'
+    ? `GitHub Copilot (${ctx.copilotModel})`
+    : ctx.provider === 'codex'
+      ? `Codex (${ctx.codexModel})`
+      : 'Gemini';
   const outlinePhase  = startPhase(ctx, 'Outline');
   const outSpinner    = ora(`  Generating via ${providerLabel}…`).start();
 
@@ -311,7 +329,8 @@ export async function generateCommand(ctx) {
   const contentPhase  = startPhase(ctx, 'Content');
   const contentSpinner = ora(`  Generating slide content… (0 / ${total})`).start();
 
-  if (ctx.provider === 'copilot') {
+  const providerCapabilities = getProviderCapabilities(ctx.provider);
+  if (ctx.provider === 'copilot' || providerCapabilities.webSearch === 'native') {
     contentSpinner.text = '  Searching web for chart and stat data…';
     evidence.contentEvidence = await collectContentEvidence(allSlides(concepts), ctx.brief);
     contentSpinner.text = `  Generating slide content… (0 / ${total})`;

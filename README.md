@@ -66,6 +66,8 @@ echo "GEMINI_API_KEY=your_key_here" > .env
 
 If you are using Copilot, set `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, or `GITHUB_TOKEN` instead.
 
+If you are using Codex, set `CODEX_API_KEY` or `OPENAI_API_KEY`. You can also pass Codex CLI overrides as JSON in `DECKGEN_CODEX_CONFIG`, for example to configure MCP servers or other native CLI options.
+
 3. Run the CLI.
 
 ```
@@ -81,7 +83,7 @@ node index.js
 4. Pass a brief directly when you want to skip prompts.
 
 ```
-npm start -- --brief "The future of urban cycling" --provider gemini --depth focused --variant dark --serve
+npm start -- --brief "The future of urban cycling" --provider codex --depth focused --variant dark --serve
 ```
 
 5. Install globally if you want the `deckgen` command available from any directory.
@@ -102,10 +104,14 @@ Commands
 
 Configuration
 
-- `DECKGEN_PROVIDER`: set the default provider to `gemini` or `copilot`.
+- `DECKGEN_PROVIDER`: set the default provider to `gemini`, `copilot`, or `codex`.
 - `GEMINI_API_KEY`: used for Gemini auth.
 - `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, or `GITHUB_TOKEN`: used for Copilot auth.
+- `CODEX_API_KEY` or `OPENAI_API_KEY`: used for Codex auth.
 - `DECKGEN_COPILOT_MODEL`: optional Copilot model override.
+- `DECKGEN_CODEX_MODEL`: optional Codex model override.
+- `DECKGEN_CODEX_CONFIG`: optional JSON object of Codex CLI config overrides, including MCP/custom tool settings and web-search toggles.
+- `DECKGEN_CODEX_THREAD_ID`: optional persisted Codex thread id for resuming the same agent session.
 
 Output
 

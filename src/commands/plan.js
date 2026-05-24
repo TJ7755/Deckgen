@@ -3,13 +3,13 @@ import chalk from 'chalk';
 import ora from 'ora';
 import fs from 'fs/promises';
 import path from 'path';
-import { ensureGeminiApiKey, ensureCopilotAuth, pickCopilotModel } from '../auth.js';
+import { ensureGeminiApiKey, ensureCopilotAuth, ensureCodexAuth, pickCopilotModel } from '../auth.js';
 import { collectPlanningEvidence } from '../evidence.js';
 import { generateOutline, reviseOutline } from '../pipeline/outline.js';
 import { generateDesignSystem } from '../pipeline/design.js';
 import { FALLBACK_CONCEPTS, DEPTH_SETTINGS } from '../constants.js';
 import { MODE_CONFIGS, VALID_MODES, getModeConfig, DEFAULT_MODE } from '../modes.js';
-import { getLocalAssets, getPlanningFiles, slugify, makeDeckStamp } from '../utils.js';
+import { getLocalAssets, getPlanningFiles, slugify, makeDeckStamp, saveDeckgenRunState } from '../utils.js';
 import {
   printPhaseHeader, printOutline, printRunSummary,
   statusOk, statusWarn, statusInfo, statusHint,
@@ -33,6 +33,8 @@ export async function planCommand(ctx) {
   // ── Auth ──────────────────────────────────────────────────────────────────
   if (ctx.provider === 'gemini') {
     await ensureGeminiApiKey(ctx);
+  } else if (ctx.provider === 'codex') {
+    await ensureCodexAuth(ctx);
   } else {
     await ensureCopilotAuth(ctx);
     await pickCopilotModel(ctx);
@@ -80,6 +82,16 @@ export async function planCommand(ctx) {
     }
   }
 
+  await saveDeckgenRunState({
+    command: 'plan',
+    provider: ctx.provider,
+    mode: ctx.mode,
+    brief: ctx.brief,
+    depth: ctx.depth,
+    variant: ctx.variant,
+    codexThreadId: ctx.codexThreadId || '',
+  }).catch(() => {});
+
   const assets        = await getLocalAssets();
   const planningFiles = await getPlanningFiles();
 
@@ -96,7 +108,11 @@ export async function planCommand(ctx) {
 
   // ── 2/2 Outline ───────────────────────────────────────────────────────────
   printPhaseHeader(2, 2, 'Outline');
-  const providerLabel = ctx.provider === 'copilot' ? `GitHub Copilot (${ctx.copilotModel})` : 'Gemini';
+  const providerLabel = ctx.provider === 'copilot'
+    ? `GitHub Copilot (${ctx.copilotModel})`
+    : ctx.provider === 'codex'
+      ? `Codex (${ctx.codexModel})`
+      : 'Gemini';
   const outlinePhase  = startPhase(ctx, 'Outline');
   const outSpinner    = ora(`  Generating via ${providerLabel}…`).start();
 

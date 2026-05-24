@@ -144,6 +144,39 @@ export async function ensureCopilotAuth(ctx) {
   console.log(chalk.green('  Token saved to .env as COPILOT_GITHUB_TOKEN.'));
 }
 
+// ── Codex ───────────────────────────────────────────────────────────────────
+
+function getCodexEnvToken() {
+  return String(process.env.CODEX_API_KEY || process.env.OPENAI_API_KEY || '').trim();
+}
+
+export async function ensureCodexAuth(ctx) {
+  const envToken = getCodexEnvToken();
+  if (envToken) {
+    ctx.codexApiKey = envToken;
+    console.log(chalk.dim('  Using Codex/OpenAI token from environment.'));
+    return;
+  }
+
+  if (ctx.yes) {
+    console.error(chalk.red('  No CODEX_API_KEY or OPENAI_API_KEY found. Run without --yes to authenticate interactively.'));
+    process.exit(1);
+  }
+
+  console.log(chalk.yellow('  No Codex/OpenAI API key found in this project.'));
+  const entered = await input({ message: '  Paste your OpenAI API key to save in .env as CODEX_API_KEY:' });
+  const cleaned = normalizeApiKey(entered);
+
+  if (!cleaned) {
+    console.error(chalk.red('  No API key entered.'));
+    process.exit(1);
+  }
+
+  ctx.codexApiKey = cleaned;
+  await upsertEnvVar('CODEX_API_KEY', cleaned);
+  console.log(chalk.green('  Saved CODEX_API_KEY to .env'));
+}
+
 export async function listCopilotModels(ctx) {
   const client = makeCopilotClient(ctx);
   try {
@@ -204,4 +237,11 @@ export async function checkCopilotAuthStatus() {
   } catch {
     return { ok: false, detail: 'Could not reach Copilot' };
   }
+}
+
+export async function checkCodexAuthStatus() {
+  const envToken = getCodexEnvToken();
+  if (envToken) return { ok: true, detail: 'Token found in environment' };
+
+  return { ok: false, detail: 'CODEX_API_KEY or OPENAI_API_KEY not set' };
 }

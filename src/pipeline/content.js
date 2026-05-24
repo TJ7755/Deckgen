@@ -1,5 +1,5 @@
 import { callLLM } from '../llm.js';
-import { TYPE_PALETTE, allSlides, countSlides } from '../constants.js';
+import { TYPE_PALETTE, allSlides, countSlides, describeProviderCapabilities, getProviderCapabilities } from '../constants.js';
 import { parseJSON, preservePlanFields, normaliseVisualFields } from '../utils.js';
 import { formatPlanningEvidence, formatContentEvidence } from '../evidence.js';
 import chalk from 'chalk';
@@ -18,9 +18,16 @@ export async function generateSlideContent(ctx, concepts, brief, assets = [], pl
     ? `\nReal-world data evidence — use these values for chart, stat, and table slides:\n${contentLines.join('\n')}\n`
     : '';
 
+  const providerCapabilities = getProviderCapabilities(ctx.provider);
+  const providerCapabilityInfo = `\nProvider capabilities: ${describeProviderCapabilities(ctx.provider)}.\n`;
+
   const chartInstruction = ctx.provider === 'gemini'
     ? 'Use the googleSearch grounding tool to find real-world data for charts.'
-    : contentLines.length
+    : providerCapabilities.webSearch === 'native'
+      ? contentLines.length
+        ? 'Use Codex live web search and the real-world data evidence above to populate chart and stat values with accurate figures.'
+        : 'Use Codex live web search to find real-world data for charts, stats, and tables.'
+      : contentLines.length
       ? 'Use the real-world data evidence above to populate chart and stat values with accurate figures.'
       : 'Use your knowledge to provide realistic, representative numeric data for charts.';
 
@@ -36,7 +43,7 @@ export async function generateSlideContent(ctx, concepts, brief, assets = [], pl
     `Expand this ${style} presentation into full visual content.\n` +
     `Brief: "${brief}"\n` +
     `Slides: ${JSON.stringify(slideList)}\n\n` +
-    `${assetsInfo}${filesInfo}${planningInfo}${contentEvidenceInfo}` +
+    `${assetsInfo}${filesInfo}${planningInfo}${contentEvidenceInfo}${providerCapabilityInfo}` +
     `Preserve the input slide order exactly. Return one output object for every input slide in the same order.\n` +
     `If a slide already has imageQuery, image, chartConfig, diagram, compareA, compareB, tableHeaders, or tableRows, keep that data unless a richer replacement is required.\n` +
     `Use only the exact field names documented below; do not introduce aliases or extra wrapper fields.\n` +
@@ -65,7 +72,10 @@ export async function generateSlideContent(ctx, concepts, brief, assets = [], pl
     `Comparison (two contrasting items side by side):\n` +
     `  {"type":"Comparison","title":"...","compareA":{"label":"Left item name","value":"optional sub-text","imageQuery":"left image"},"compareB":{"label":"Right item name","value":"optional sub-text","imageQuery":"right image"}}\n\n` +
     `${forbiddenLine}\n` +
-    `Write in British English. Be specific and precise — no vague placeholders.`
+    `Write in British English. Be specific and precise — no vague placeholders.`,
+    ctx.provider === 'codex' && assets.length
+      ? { inputImages: assets }
+      : undefined
   );
 
   const parsed         = parseJSON(txt);

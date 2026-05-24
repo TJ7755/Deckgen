@@ -1,5 +1,5 @@
 import { callLLM } from '../llm.js';
-import { TYPE_PALETTE, DEPTH_SETTINGS } from '../constants.js';
+import { TYPE_PALETTE, DEPTH_SETTINGS, describeProviderCapabilities } from '../constants.js';
 import { parseJSON, preservePlanFields, normaliseVisualFields } from '../utils.js';
 import { formatPlanningEvidence } from '../evidence.js';
 
@@ -78,11 +78,12 @@ export async function generateOutline(ctx, brief, depth, assets = [], planningFi
   const imageQueryRule = ctx.modeConfig?.allowBullets
     ? `- Include an "imageQuery" for image and photo slides where visual context adds value`
     : `- Every slide except Chart and Data Table must include an "imageQuery" search string`;
+  const providerCapabilityInfo = `\nProvider capabilities: ${describeProviderCapabilities(ctx.provider)}\n`;
 
   const txt = await callLLM(
     ctx,
     `Plan a ${style} presentation for this brief: "${brief}"\n\n` +
-    `${buildDepthLine(settings)}${assetsInfo}${filesInfo}${evidenceInfo}\n\n` +
+    `${buildDepthLine(settings)}${assetsInfo}${filesInfo}${evidenceInfo}${providerCapabilityInfo}\n` +
     `Structure rules:\n` +
     `- Each "concept" is a major section (horizontal navigation in the deck)\n` +
     `- Each concept contains 1–5 "slides" that develop that section (vertical navigation)\n` +
@@ -96,7 +97,10 @@ export async function generateOutline(ctx, brief, depth, assets = [], planningFi
     `- Each concept must include a short "summary", a numbered "rationale" array, and an "evidenceRefs" array of the numeric citations used from the evidence list above\n` +
     `- Every slide should also include a short "summary", a numbered "rationale" array, and an "evidenceRefs" array where possible\n\n` +
     `Return STRICT JSON only:\n` +
-    `{"concepts":[{"role":"opener","title":"concept title (2–5 words)","summary":"one-sentence beat summary","rationale":["1. concise explanation","2. numbered evidence-backed justification"],"evidenceRefs":[1,2],"slides":[{"type":"Title Card","title":"deck title (3–7 words)","summary":"one-sentence slide intent","rationale":["1. concise explanation"],"evidenceRefs":[1],"imageQuery":"atmospheric search term","image":"optional local or remote image path or URL","caption":"optional short caption"}]}]}`
+    `{"concepts":[{"role":"opener","title":"concept title (2–5 words)","summary":"one-sentence beat summary","rationale":["1. concise explanation","2. numbered evidence-backed justification"],"evidenceRefs":[1,2],"slides":[{"type":"Title Card","title":"deck title (3–7 words)","summary":"one-sentence slide intent","rationale":["1. concise explanation"],"evidenceRefs":[1],"imageQuery":"atmospheric search term","image":"optional local or remote image path or URL","caption":"optional short caption"}]}]}`,
+    ctx.provider === 'codex' && assets.length
+      ? { inputImages: assets }
+      : undefined
   );
 
   const parsed      = parseJSON(txt);

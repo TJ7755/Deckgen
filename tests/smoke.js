@@ -66,6 +66,11 @@ test('normalizeProvider: copilot variant', () => {
   assert.equal(normalizeProvider('Copilot'), 'copilot');
 });
 
+test('normalizeProvider: codex variant', () => {
+  assert.equal(normalizeProvider('codex'), 'codex');
+  assert.equal(normalizeProvider('Codex'), 'codex');
+});
+
 test('normalizeApiKey strips prefix', () => {
   assert.equal(normalizeApiKey('GEMINI_API_KEY=abc123'), 'abc123');
   assert.equal(normalizeApiKey('  abc123  '),            'abc123');
