@@ -53,7 +53,7 @@ Quick start
 1. Clone the repository and install dependencies.
 
 ```
-git clone https://github.com/your-username/deckgen.git
+git clone https://github.com/TJ7755/Deckgen.git
 cd deckgen
 npm install
 ```
